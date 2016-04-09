@@ -107,7 +107,7 @@ $ip=$_SERVER['REMOTE_ADDR'];
 					   		quantity += myTable.rows[r].cells[c].childNodes[0].value + " ";
 					   		//alert(quantity);
 					   		//Data to be entered into database for further reference by admin and previous orders.
-					   		window.location.href = "/cip/insertorder.php?food=" + cellname + "&quantity=" + quantity;
+					   		window.location.href = "insertorder.php?food=" + cellname + "&quantity=" + quantity;
 
 			   }
             }

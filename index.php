@@ -2,6 +2,8 @@
 <?php
 // Start the session
 session_start();
+//ini_set("display_errors", 1);
+//error_reporting(-1);
       $ip=$_SERVER['REMOTE_ADDR'];
 //      $mac = shell_exec('arp '.$ip.' | awk \'{print $4}\'');
       if(!isset($_SESSION["ip"]) && !isset($_SESSION["uname"])) {
@@ -9,7 +11,7 @@ session_start();
 	                 window.location = "login.php"
 	            </script>';
       }
-      $servername = "localhost";
+      	$servername = "localhost";
 		$username = "root";
 		$password = "root";
 		$dbname = "cipproject";
@@ -29,6 +31,125 @@ session_start();
 		while($row = $result->fetch_assoc()) {
 	         $id++;
 	    }
+
+	    //Recommendation
+	    for($i=1;$i<5;$i++)
+	    {	
+	    	$j=0;
+	    	$sqlforrec="SELECT itemID2 , ( sum / count ) AS average
+					FROM dev
+					WHERE count > 2 AND itemID1 = $i
+					ORDER BY ( sum / count ) DESC
+					LIMIT 10";
+			$resultsqlrec =$conn->query($sqlforrec);
+			while($row = $resultsqlrec->fetch_assoc()){
+				$Item[$j]=$i;
+				$average[$j]=$row['average'];
+				$j=$j+1;
+			}
+		}
+		function cmp( $a, $b ) { 
+  			if(  $a->weight ==  $b->weight ){ return 0 ; } 
+  			return ($a->weight < $b->weight) ? -1 : 1;
+		}
+		usort($average,'cmp');
+
+
+	    //Recommendation
+	    $sqlrand = "SELECT * FROM menucard ORDER BY RAND() LIMIT 1";
+	    $resultran = $conn->query($sqlrand);
+	    while($row = $resultran->fetch_assoc()) {
+	        $foodname = $row['food'];
+	    }
+
+	    //Getting Token Number
+	    $sqlt = "SELECT count(*) as total from tokengiver where username = '$user' ORDER BY id DESC";
+	    $rr = $conn->query($sqlt);
+	    while($resultcount = $rr->fetch_assoc()) {
+		if($resultcount['total']==0)
+		{
+			$tokennum = "No Token";
+		}
+		else
+		{
+			$sqltoken = "SELECT * FROM tokengiver where username='$user' ORDER BY id desc";
+			$result = $conn->query($sqltoken);
+			while($row = $result->fetch_assoc()) {
+	         $tokennum = $row['id'];
+	    	}
+		}
+		}
+
+			//To get Serving Queue
+	    	$sqlserve = "SELECT * FROM tokengiver";
+			$result2 = $conn->query($sqlserve);
+			$idsum = mysqli_num_rows($result2);
+			while($row = $result2->fetch_assoc()) {
+	    		$chkpt = $row['id'];
+	    		$idsum++;
+	    	}
+	    	//Serving Queue;
+			if($idsum == 0 )
+				$servingqueue = '100';
+			else
+			{
+				$servingqueue = 100 - $chkpt;
+			}
+
+			//Get Serving time from all 2 tables
+
+			//getting user id
+			$sqlidget = "SELECT id from customers where name = '$user'";
+			$ridget = $conn->query($sqlidget);
+			while($row = $ridget->fetch_assoc()){
+				$userid = $row['id'];
+			}
+			
+			//table 1
+			$sqlidmas1 = "SELECT id from idmaster where userid = '$userid' ORDER BY id DESC";
+			$ridmas = $conn->query($sqlidmas1);
+			$row2 = $ridmas->fetch_assoc();
+			$lastididmas = $row2['id'];
+			$sqlidtime = "SELECT SUM(time) as tot from idmaster where id <='$lastididmas'";
+			$ridtime = $conn->query($sqlidtime);
+			$row3 = $ridtime->fetch_assoc();
+			$idmasttime = $row3['tot'];
+
+			//table 2
+			$sqlchmas1 = "SELECT id from chmaster where userid = '$userid' ORDER BY id DESC";
+			$rchmas = $conn->query($sqlchmas1);
+			$row4 = $rchmas->fetch_assoc();
+			$lastidchmas = $row4['id'];
+			$sqlchtime = "SELECT SUM(time) as tot from chmaster where id <='$lastididmas'";
+			$rchtime = $conn->query($sqlchtime);
+			$row5 = $rchtime->fetch_assoc();
+			$chmasttime = $row5['tot'];
+
+			//table 3
+			$sqlffmas1 = "SELECT id from ffmaster where userid = '$userid' ORDER BY id DESC";
+			$rffmas = $conn->query($sqlffmas1);
+			$row6 = $rffmas->fetch_assoc();
+			$lastffchmas = $row6['id'];
+			$sqlfftime = "SELECT SUM(time) as tot from chmaster where id <='$lastididmas'";
+			$rfftime = $conn->query($sqlfftime);
+			$row7 = $rfftime->fetch_assoc();
+			$ffmasttime = $row7['tot'];
+
+			if($idmasttime > $chmasttime)
+			{
+				if($idmasttime> $ffmasttime)
+					$totaltimetoserve = $idmasttime;
+				else
+					$totaltimetoserve = $ffmasttime;
+			}
+			else
+				$totaltimetoserve = $chmasttime;
+			if($totaltimetoserve >60)
+			{
+				$errorval = "DoS attack alert! Contact ADMIN.";
+
+			}
+
 ?>
 <html class="fixed">
 	<head>
@@ -178,20 +299,21 @@ session_start();
 											<div class="chart-data-selector" id="salesSelectorWrapper">
 												<h2>
 													Current Token on process: 
-													<strong>TN06</strong>
+													<strong><?php echo $tokennum; ?></strong>
 												</h2></br></br>
-												<h3>You will be served "" if you order now!</h3>
+												<?php if(isset($errorval)) {echo $errorval;} else{ ?>
+												<h3>You will be served after <?php echo $totaltimetoserve; ?>minutes if you order now!</h3>
 												Scroll below to add an order.</br>
 												New Orders get new Tokens Automatically.</br>
-												Note: Predictable Token Number may vary from the token shown above.</br>
+												Note: Predictable Token Number may vary from the token shown above.</br> <?php } ?>
 											</div>
 										</div>
 										<div class="col-lg-4 text-center">
 											<h2 class="panel-title mt-md">Your Serving</h2>
 												<div class="circular-bar">
-													<div class="circular-bar-chart" data-percent="75" data-plugin-options='{ "barColor": "#2BAAB1", "delay": 600 }'>
+													<div class="circular-bar-chart" data-percent="<?php echo $servingqueue; ?>" data-plugin-options='{ "barColor": "#2BAAB1", "delay": 600 }'>
 														<strong>Serving queue</strong>
-														<label><span class="percent">75</span>%</label>
+														<label><span class="percent"><?php echo $servingqueue; ?></span>%</label>
 													</div>
 												</div>
 										</div>
@@ -243,6 +365,34 @@ session_start();
 													</div>
 													<div class="summary-footer">
 														<a class="text-muted text-uppercase" href="addorder.php">(get me there!)</a>
+													</div>
+												</div>
+											</div>
+										</div>
+									</section>
+								</div>
+							</div>
+						</div>
+						<div class="col-md-6 col-lg-12 col-xl-6">
+							<div class="row">
+								<div class="col-md-12 col-lg-6 col-xl-6">
+									<section class="panel panel-featured-left panel-featured-tertiary">
+										<div class="panel-body">
+											<div class="widget-summary">
+												<div class="widget-summary-col widget-summary-col-icon">
+													<div class="summary-icon bg-tertiary">
+														<i class="fa fa-shopping-cart"></i>
+													</div>
+												</div>
+												<div class="widget-summary-col">
+													<div class="summary">
+														<h4 class="title">Recommended today</h4>
+														<div class="info">
+															<strong class="amount"><?php echo $foodname; ?></strong>
+														</div>
+													</div>
+													<div class="summary-footer">
+														<a class="text-muted text-uppercase" href="addorder.php">(view all)</a>
 													</div>
 												</div>
 											</div>
